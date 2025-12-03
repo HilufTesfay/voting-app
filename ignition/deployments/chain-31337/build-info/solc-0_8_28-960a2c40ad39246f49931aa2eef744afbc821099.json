@@ -1,0 +1,39 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_28-960a2c40ad39246f49931aa2eef744afbc821099",
+  "solcVersion": "0.8.28",
+  "solcLongVersion": "0.8.28+commit.7893614a",
+  "userSourceNameMap": {
+    "contracts/WeightedVoting.sol": "project/contracts/WeightedVoting.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode",
+            "evm.deployedBytecode",
+            "evm.methodIdentifiers",
+            "metadata"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/WeightedVoting.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.19;\n\ncontract WeightedVoting {\n    struct Voter {\n        bool isWhitelisted;\n        uint256 weight;\n        bool hasVoted;\n        uint256 votedProposal;\n    }\n\n    struct Proposal {\n        string description;\n        uint256 voteCount;\n        uint256 forVotes;\n        uint256 againstVotes;\n    }\n\n    address public admin;\n    Proposal[] public proposals;\n\n    mapping(address => Voter) public voters;\n    address[] public voterAddresses;\n\n    enum VotingStatus {\n        Pending,\n        Active,\n        Closed\n    }\n    VotingStatus public status;\n\n    event VoterWhitelisted(address voter, uint256 weight);\n    event VoteCast(address voter, uint256 proposalId, uint256 weight);\n    event ProposalCreated(string description);\n    event VotingStatusChanged(VotingStatus status);\n\n    modifier onlyAdmin() {\n        require(msg.sender == admin, \"Only admin can call this\");\n        _;\n    }\n\n    modifier onlyWhitelisted() {\n        require(voters[msg.sender].isWhitelisted, \"Not whitelisted\");\n        _;\n    }\n\n    modifier votingActive() {\n        require(status == VotingStatus.Active, \"Voting is not active\");\n        _;\n    }\n\n    constructor() {\n        admin = msg.sender;\n        status = VotingStatus.Pending;\n    }\n\n    function whitelistVoter(address _voter, uint256 _weight) public onlyAdmin {\n        require(!voters[_voter].isWhitelisted, \"Already whitelisted\");\n        require(_weight > 0, \"Weight must be > 0\");\n\n        voters[_voter] = Voter({\n            isWhitelisted: true,\n            weight: _weight,\n            hasVoted: false,\n            votedProposal: 0\n        });\n\n        voterAddresses.push(_voter);\n        emit VoterWhitelisted(_voter, _weight);\n    }\n\n    function createProposal(string memory _description) public onlyAdmin {\n        proposals.push(\n            Proposal({\n                description: _description,\n                voteCount: 0,\n                forVotes: 0,\n                againstVotes: 0\n            })\n        );\n\n        emit ProposalCreated(_description);\n    }\n\n    function startVoting() public onlyAdmin {\n        status = VotingStatus.Active;\n        emit VotingStatusChanged(status);\n    }\n\n    function endVoting() public onlyAdmin {\n        status = VotingStatus.Closed;\n        emit VotingStatusChanged(status);\n    }\n\n    function vote(\n        uint256 _proposalId,\n        bool _support\n    ) public onlyWhitelisted votingActive {\n        Voter storage sender = voters[msg.sender];\n        require(!sender.hasVoted, \"Already voted\");\n        require(_proposalId < proposals.length, \"Invalid proposal\");\n\n        Proposal storage proposal = proposals[_proposalId];\n\n        sender.hasVoted = true;\n        sender.votedProposal = _proposalId;\n        proposal.voteCount += sender.weight;\n\n        if (_support) {\n            proposal.forVotes += sender.weight;\n        } else {\n            proposal.againstVotes += sender.weight;\n        }\n\n        emit VoteCast(msg.sender, _proposalId, sender.weight);\n    }\n\n    // View functions\n    function getProposalsCount() public view returns (uint256) {\n        return proposals.length;\n    }\n\n    function getProposal(\n        uint256 _proposalId\n    )\n        public\n        view\n        returns (\n            string memory description,\n            uint256 voteCount,\n            uint256 forVotes,\n            uint256 againstVotes\n        )\n    {\n        require(_proposalId < proposals.length, \"Invalid proposal\");\n        Proposal storage p = proposals[_proposalId];\n        return (p.description, p.voteCount, p.forVotes, p.againstVotes);\n    }\n\n    function getVoterInfo(\n        address _voter\n    )\n        public\n        view\n        returns (\n            bool isWhitelisted,\n            uint256 weight,\n            bool hasVoted,\n            uint256 votedProposal\n        )\n    {\n        Voter storage v = voters[_voter];\n        return (v.isWhitelisted, v.weight, v.hasVoted, v.votedProposal);\n    }\n\n    function getVoterCount() public view returns (uint256) {\n        return voterAddresses.length;\n    }\n}\n"
+      }
+    }
+  }
+}
